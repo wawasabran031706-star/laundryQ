@@ -1,0 +1,1290 @@
+<?php
+// File: laundryq/admin/dashboard.php
+
+declare(strict_types=1);
+
+session_start();
+
+require_once __DIR__ . '/../config/db_connect.php';
+require_once __DIR__ . '/../config/email.php';
+
+use MongoDB\BSON\ObjectId;
+use MongoDB\BSON\UTCDateTime;
+
+if (!isset($_SESSION['admin_id'])) {
+    die(
+        "You must be logged in as admin. " .
+        "<a href='login.php'>Login here</a>"
+    );
+}
+
+$adminIdString = trim(
+    (string) $_SESSION['admin_id']
+);
+
+if (!preg_match('/^[a-fA-F0-9]{24}$/', $adminIdString)) {
+    session_destroy();
+
+    die(
+        "Invalid admin session. " .
+        "<a href='login.php'>Please login again</a>"
+    );
+}
+
+function h(mixed $value): string
+{
+    if ($value === null || $value === '') {
+        return '—';
+    }
+
+    return htmlspecialchars(
+        (string) $value,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+}
+
+function validObjectId(string $value): bool
+{
+    return preg_match('/^[a-fA-F0-9]{24}$/', $value) === 1;
+}
+
+function asArray(mixed $document): ?array
+{
+    if ($document === null) {
+        return null;
+    }
+
+    if (is_array($document)) {
+        return $document;
+    }
+
+    if (method_exists($document, 'getArrayCopy')) {
+        return $document->getArrayCopy();
+    }
+
+    return null;
+}
+
+function findById($collection, mixed $id): ?array
+{
+    if (!$id instanceof ObjectId) {
+        return null;
+    }
+
+    return asArray(
+        $collection->findOne([
+            '_id' => $id
+        ])
+    );
+}
+
+function sendOrderEmail(
+    ?array $customer,
+    string $orderId,
+    string $status
+): bool {
+    if ($customer === null) {
+        error_log(
+            'Order status email skipped: customer not found.'
+        );
+
+        return false;
+    }
+
+    $email = trim((string) (
+        $customer['email'] ??
+        $customer['email_address'] ??
+        ''
+    ));
+
+    $name = trim((string) (
+        $customer['full_name'] ??
+        $customer['name'] ??
+        'LaundryQ Customer'
+    ));
+
+    if ($email === '') {
+        error_log(
+            'Order status email skipped: customer email is missing.'
+        );
+
+        return false;
+    }
+
+    if (!function_exists('sendOrderStatusEmail')) {
+        error_log(
+            'Order status email failed: email.php was not loaded.'
+        );
+
+        return false;
+    }
+
+    return sendOrderStatusEmail(
+        $email,
+        $name,
+        $orderId,
+        $status
+    );
+}
+
+function formatDateValue(mixed $value): string
+{
+    if ($value instanceof UTCDateTime) {
+        return $value
+            ->toDateTime()
+            ->setTimezone(
+                new DateTimeZone('Asia/Manila')
+            )
+            ->format('M j, Y g:i A');
+    }
+
+    if ($value instanceof DateTimeInterface) {
+        return DateTimeImmutable::createFromInterface($value)
+            ->setTimezone(
+                new DateTimeZone('Asia/Manila')
+            )
+            ->format('M j, Y g:i A');
+    }
+
+    return h($value);
+}
+
+function statusBadge(string $status): string
+{
+    $colors = [
+        'Pending' => 'secondary',
+        'Accepted' => 'success',
+        'Washing' => 'info',
+        'Drying' => 'info',
+        'Folding' => 'warning',
+        'In Progress' => 'primary',
+        'Ready for Pickup' => 'primary',
+        'Ready for Pick-Up' => 'primary',
+        'Picked Up' => 'success',
+        'Completed' => 'success',
+        'Cancelled' => 'danger',
+        'Cancellation Requested' => 'warning',
+        'Service Change Requested' => 'info',
+        'Declined' => 'danger',
+        'Rejected' => 'danger'
+    ];
+
+    $color = $colors[$status] ?? 'secondary';
+
+    return '<span class="badge bg-' .
+        $color .
+        '">' .
+        h($status) .
+        '</span>';
+}
+
+$message = '';
+$orders = [];
+$chartError = '';
+$chartData = [
+    'daily' => [
+        'labels' => [],
+        'values' => []
+    ],
+    'weekly' => [
+        'labels' => [],
+        'values' => []
+    ],
+    'monthly' => [
+        'labels' => [],
+        'values' => []
+    ]
+];
+
+foreach (
+    ['message' => 'success', 'error' => 'danger']
+    as $key => $type
+) {
+    if (isset($_SESSION[$key])) {
+        $message .= '<div class="alert alert-' .
+            $type .
+            ' alert-dismissible fade show shadow-sm" ' .
+            'role="alert">' .
+            h($_SESSION[$key]) .
+            '<button type="button" class="btn-close" ' .
+            'data-bs-dismiss="alert" aria-label="Close"></button>' .
+            '</div>';
+
+        unset($_SESSION[$key]);
+    }
+}
+
+try {
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'POST' &&
+        isset($_POST['order_id'])
+    ) {
+        $orderIdText = trim((string) $_POST['order_id']);
+        $action = trim((string) (
+            $_POST['action'] ?? 'update_status'
+        ));
+
+        if (!validObjectId($orderIdText)) {
+            throw new RuntimeException('Invalid order ID.');
+        }
+
+        $orderId = new ObjectId($orderIdText);
+        $order = asArray(
+            $db->orders->findOne([
+                '_id' => $orderId
+            ])
+        );
+
+        if ($order === null) {
+            throw new RuntimeException('Order not found.');
+        }
+
+        $oldStatus = trim((string) (
+            $order['status'] ?? 'Pending'
+        ));
+
+        $set = [
+            'notified' => false,
+            'updated_at' => new UTCDateTime(),
+            'updated_by' => new ObjectId($adminIdString)
+        ];
+
+        $unset = [];
+        $newStatus = '';
+        $successMessage = '';
+
+        if ($action === 'approve_service_change') {
+            $requestedServiceId =
+                $order['requested_service_id'] ?? null;
+
+            if (!$requestedServiceId instanceof ObjectId) {
+                throw new RuntimeException(
+                    'No requested service was found.'
+                );
+            }
+
+            $newStatus = 'Pending';
+
+            $set['service_id'] = $requestedServiceId;
+            $set['weight_kg'] =
+                $order['requested_weight_kg'] ??
+                $order['weight_kg'] ??
+                0;
+            $set['total_amount'] =
+                $order['requested_total_amount'] ??
+                $order['total_amount'] ??
+                0;
+            $set['status'] = $newStatus;
+            $set['service_change_result'] = 'approved';
+
+            $unset = [
+                'requested_service_id' => '',
+                'requested_weight_kg' => '',
+                'requested_total_amount' => ''
+            ];
+
+            $successMessage =
+                "Service change approved for order #" .
+                $orderIdText . '.';
+        } elseif ($action === 'decline_service_change') {
+            $newStatus = 'Pending';
+            $set['status'] = $newStatus;
+            $set['service_change_result'] = 'declined';
+
+            $unset = [
+                'requested_service_id' => '',
+                'requested_weight_kg' => '',
+                'requested_total_amount' => ''
+            ];
+
+            $successMessage =
+                "Service change declined for order #" .
+                $orderIdText . '.';
+        } else {
+            $newStatus = trim((string) (
+                $_POST['status'] ?? ''
+            ));
+
+            $allowedStatuses = [
+                'Pending',
+                'Washing',
+                'Drying',
+                'Folding',
+                'In Progress',
+                'Ready for Pickup',
+                'Ready for Pick-Up',
+                'Picked Up',
+                'Completed',
+                'Cancelled'
+            ];
+
+            if (!in_array($newStatus, $allowedStatuses, true)) {
+                throw new RuntimeException(
+                    'Invalid order status.'
+                );
+            }
+
+            $set['status'] = $newStatus;
+
+            $successMessage =
+                "Order #" .
+                $orderIdText .
+                " updated to " .
+                $newStatus .
+                '.';
+        }
+
+        $update = [
+            '$set' => $set
+        ];
+
+        if ($unset !== []) {
+            $update['$unset'] = $unset;
+        }
+
+        $updateResult = $db->orders->updateOne(
+            ['_id' => $orderId],
+            $update
+        );
+
+        if ($updateResult->getMatchedCount() === 0) {
+            throw new RuntimeException(
+                'The order could not be updated.'
+            );
+        }
+
+        $emailSent = false;
+        $updatedOrder = asArray(
+            $db->orders->findOne([
+                '_id' => $orderId
+            ])
+        );
+
+        $customer = findById(
+            $db->users,
+            $updatedOrder['user_id'] ??
+            $order['user_id'] ??
+            null
+        );
+
+        if ($oldStatus !== $newStatus) {
+            $emailSent = sendOrderEmail(
+                $customer,
+                $orderIdText,
+                $newStatus
+            );
+        }
+
+        $db->orders->updateOne(
+            ['_id' => $orderId],
+            [
+                '$set' => [
+                    'notified' => $emailSent,
+                    'notification_updated_at' =>
+                        new UTCDateTime()
+                ]
+            ]
+        );
+
+        $_SESSION['message'] = $successMessage;
+
+        if ($oldStatus !== $newStatus && $emailSent) {
+            $_SESSION['message'] .=
+                ' Customer email notification sent.';
+        } elseif ($oldStatus !== $newStatus) {
+            $_SESSION['message'] .=
+                ' Order updated, but the customer email could not be sent.';
+        } else {
+            $_SESSION['message'] .=
+                ' No email was sent because the status did not change.';
+        }
+
+        header('Location: dashboard.php');
+        exit();
+    }
+} catch (Throwable $e) {
+    error_log(
+        'Admin order action error: ' .
+        $e->getMessage()
+    );
+
+    $_SESSION['error'] =
+        'The order update could not be completed: ' .
+        $e->getMessage();
+
+    header('Location: dashboard.php');
+    exit();
+}
+
+try {
+    foreach (
+        $db->orders->find(
+            [],
+            [
+                'sort' => [
+                    'created_at' => -1
+                ]
+            ]
+        ) as $document
+    ) {
+        $order = asArray($document);
+
+        if ($order === null) {
+            continue;
+        }
+
+        $customer = findById(
+            $db->users,
+            $order['user_id'] ?? null
+        );
+
+        $service = findById(
+            $db->services,
+            $order['service_id'] ?? null
+        );
+
+        $requestedService = findById(
+            $db->services,
+            $order['requested_service_id'] ?? null
+        );
+
+        $order['order_id_text'] =
+            (string) ($order['_id'] ?? '');
+        $order['customer_name'] =
+            $customer['full_name'] ??
+            $customer['name'] ??
+            '—';
+        $order['service_name'] =
+            $service['service_name'] ?? '—';
+        $order['requested_service_name'] =
+            $requestedService['service_name'] ?? '—';
+
+        $orders[] = $order;
+    }
+} catch (Throwable $e) {
+    error_log(
+        'Admin orders loading error: ' .
+        $e->getMessage()
+    );
+
+    $message .= '<div class="alert alert-danger">' .
+        'Orders could not be loaded: ' .
+        h($e->getMessage()) .
+        '</div>';
+}
+
+$totalOrders = count($orders);
+$pendingOrders = 0;
+$completedOrders = 0;
+$totalRevenue = 0.0;
+$serviceChangeRequests = 0;
+$cancelRequests = 0;
+
+foreach ($orders as $order) {
+    $status = (string) (
+        $order['status'] ?? 'Pending'
+    );
+
+    if ($status === 'Pending') {
+        $pendingOrders++;
+    }
+
+    if ($status === 'Completed') {
+        $completedOrders++;
+    }
+
+    if ($status === 'Service Change Requested') {
+        $serviceChangeRequests++;
+    }
+
+    if ($status === 'Cancellation Requested') {
+        $cancelRequests++;
+    }
+
+    if (!in_array(
+        $status,
+        ['Cancelled', 'Cancellation Requested'],
+        true
+    )) {
+        $totalRevenue += (float) (
+            $order['total_amount'] ?? 0
+        );
+    }
+}
+
+try {
+    $pendingReservations =
+        $db->reservations->countDocuments([
+            'status' => 'Pending'
+        ]);
+} catch (Throwable $e) {
+    $pendingReservations = 0;
+
+    error_log(
+        'Pending reservation count error: ' .
+        $e->getMessage()
+    );
+}
+
+$chartTimezone = new DateTimeZone('Asia/Manila');
+$chartNow = new DateTimeImmutable('now', $chartTimezone);
+$chartToday = $chartNow->setTime(0, 0);
+$dailyUsers = [];
+$weeklyUsers = [];
+$monthlyUsers = [];
+
+for ($offset = 6; $offset >= 0; $offset--) {
+    $day = $chartToday->modify("-{$offset} days");
+    $key = $day->format('Y-m-d');
+
+    $dailyUsers[$key] = [];
+    $chartData['daily']['labels'][] = $day->format('D, M j');
+}
+
+$weekStart = $chartToday->modify('monday this week');
+
+for ($offset = 7; $offset >= 0; $offset--) {
+    $week = $weekStart->modify("-{$offset} weeks");
+    $key = $week->format('o-W');
+
+    $weeklyUsers[$key] = [];
+    $chartData['weekly']['labels'][] =
+        'Week of ' . $week->format('M j');
+}
+
+$monthStart = $chartToday->modify('first day of this month');
+
+for ($offset = 11; $offset >= 0; $offset--) {
+    $month = $monthStart->modify("-{$offset} months");
+    $key = $month->format('Y-m');
+
+    $monthlyUsers[$key] = [];
+    $chartData['monthly']['labels'][] = $month->format('M Y');
+}
+
+$chartStartDate = $monthStart->modify('-11 months');
+$chartStart = new UTCDateTime(
+    $chartStartDate->getTimestamp() * 1000
+);
+$chartEnd = new UTCDateTime(
+    $chartNow->getTimestamp() * 1000
+);
+
+$collectCustomerActivity = static function (
+    $collection,
+    array $excludedStatuses
+) use (
+    &$dailyUsers,
+    &$weeklyUsers,
+    &$monthlyUsers,
+    $chartStart,
+    $chartEnd,
+    $chartTimezone
+): void {
+    foreach ($collection->find(
+        [
+            'created_at' => [
+                '$gte' => $chartStart,
+                '$lt' => $chartEnd
+            ],
+            'status' => [
+                '$nin' => $excludedStatuses
+            ]
+        ],
+        [
+            'projection' => [
+                'created_at' => 1,
+                'user_id' => 1
+            ]
+        ]
+    ) as $activity) {
+        $userId = $activity['user_id'] ?? null;
+        $createdAt = $activity['created_at'] ?? null;
+
+        if (
+            !($userId instanceof ObjectId) ||
+            (
+                !($createdAt instanceof UTCDateTime) &&
+                !($createdAt instanceof DateTimeInterface)
+            )
+        ) {
+            continue;
+        }
+
+        if ($createdAt instanceof UTCDateTime) {
+            $createdAt = $createdAt->toDateTime();
+        }
+
+        $activityDate = DateTimeImmutable::createFromInterface(
+            $createdAt
+        )->setTimezone($chartTimezone);
+
+        $userId = (string) $userId;
+        $dayKey = $activityDate->format('Y-m-d');
+        $weekKey = $activityDate->format('o-W');
+        $monthKey = $activityDate->format('Y-m');
+
+        if (isset($dailyUsers[$dayKey])) {
+            $dailyUsers[$dayKey][$userId] = true;
+        }
+
+        if (isset($weeklyUsers[$weekKey])) {
+            $weeklyUsers[$weekKey][$userId] = true;
+        }
+
+        if (isset($monthlyUsers[$monthKey])) {
+            $monthlyUsers[$monthKey][$userId] = true;
+        }
+    }
+};
+
+try {
+    $collectCustomerActivity(
+        $db->orders,
+        [
+            'Cancelled',
+            'Cancellation Requested'
+        ]
+    );
+} catch (Throwable $e) {
+    error_log(
+        'Admin activity chart order query error: ' .
+        $e->getMessage()
+    );
+
+    $chartError =
+        'Customer activity data could not be fully loaded.';
+}
+
+try {
+    $collectCustomerActivity(
+        $db->reservations,
+        [
+            'Cancelled',
+            'Rejected',
+            'Declined'
+        ]
+    );
+} catch (Throwable $e) {
+    error_log(
+        'Admin activity chart reservation query error: ' .
+        $e->getMessage()
+    );
+
+    $chartError =
+        'Customer activity data could not be fully loaded.';
+}
+
+foreach ($dailyUsers as $users) {
+    $chartData['daily']['values'][] = count($users);
+}
+
+foreach ($weeklyUsers as $users) {
+    $chartData['weekly']['values'][] = count($users);
+}
+
+foreach ($monthlyUsers as $users) {
+    $chartData['monthly']['values'][] = count($users);
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+    <title>Admin Dashboard - LaundryQ</title>
+    <link
+        href="../assets/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link
+        href="../assets/css/dashboard-background.css"
+        rel="stylesheet"
+    >
+    <link
+        href="../assets/css/admin-ui.css"
+        rel="stylesheet"
+    >
+</head>
+<body class="dashboard-background admin-ui">
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+        <div class="d-flex align-items-center gap-2">
+            <a
+                href="../index.php"
+                class="btn btn-outline-light btn-sm"
+            >
+                ← Back to Home
+            </a>
+
+            <span class="navbar-brand mb-0 h1">
+                🧺 LaundryQ Admin
+            </span>
+
+            <a
+                href="reservations.php"
+                class="btn btn-outline-light btn-sm"
+            >
+                📅 Reservations
+            </a>
+
+            <a
+                href="reviews.php"
+                class="btn btn-outline-warning btn-sm"
+            >
+                ⭐ Reviews
+            </a>
+        </div>
+
+        <div>
+            <span class="text-white me-3">
+                Logged in as:
+                <?= h($_SESSION['admin_name'] ?? 'Admin') ?>
+            </span>
+
+            <a
+                href="logout.php"
+                class="btn btn-outline-light btn-sm"
+            >
+                Logout
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container pb-5">
+    <section class="admin-hero">
+        <div>
+            <h1>Admin dashboard</h1>
+            <p>Keep orders moving and get a clear view of your laundry operations.</p>
+        </div>
+        <a href="reservations.php" class="btn">
+            Review reservations <span aria-hidden="true">→</span>
+        </a>
+    </section>
+
+    <?= $message ?>
+
+    <?php if ($pendingReservations > 0): ?>
+        <div class="alert alert-info">
+            <strong>
+                📅 <?= h($pendingReservations) ?>
+                pending reservation(s).
+            </strong>
+            <a
+                href="reservations.php"
+                class="ms-2"
+            >
+                Review them here
+            </a>
+        </div>
+    <?php endif; ?>
+
+    <div class="row mb-4">
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card admin-stat-card admin-stat-orders shadow-sm text-center h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Orders</h6>
+                    <h3><?= h($totalOrders) ?></h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card admin-stat-card admin-stat-pending shadow-sm text-center h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Pending</h6>
+                    <h3 class="text-secondary">
+                        <?= h($pendingOrders) ?>
+                    </h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card admin-stat-card admin-stat-completed shadow-sm text-center h-100">
+                <div class="card-body">
+                    <h6 class="text-muted">Completed</h6>
+                    <h3 class="text-success">
+                        <?= h($completedOrders) ?>
+                    </h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card admin-stat-card admin-stat-revenue shadow-sm text-center h-100 bg-primary text-white">
+                <div class="card-body">
+                    <h6>Total Revenue</h6>
+                    <h3>
+                        ₱<?= number_format($totalRevenue, 2) ?>
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <?php if (
+        $cancelRequests > 0 ||
+        $serviceChangeRequests > 0
+    ): ?>
+        <div class="row mb-4">
+            <?php if ($cancelRequests > 0): ?>
+                <div class="col-md-6">
+                    <div class="alert alert-warning">
+                        🔔 <?= h($cancelRequests) ?>
+                        cancellation request(s) waiting for review.
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($serviceChangeRequests > 0): ?>
+                <div class="col-md-6">
+                    <div class="alert alert-info">
+                        🔄 <?= h($serviceChangeRequests) ?>
+                        service change request(s) waiting for review.
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="card shadow-sm mb-4">
+        <div
+            class="card-header bg-white d-flex flex-wrap
+            justify-content-between align-items-center gap-3"
+        >
+            <div>
+                <h5 class="mb-1">Customer activity</h5>
+                <small class="text-muted">
+                    Unique customers with active orders or reservations
+                </small>
+            </div>
+
+            <div
+                class="btn-group btn-group-sm chart-period-switcher"
+                role="group"
+                aria-label="Select chart period"
+            >
+                <button
+                    type="button"
+                    class="btn btn-outline-primary active"
+                    data-chart-period="daily"
+                    aria-pressed="true"
+                >
+                    Daily
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    data-chart-period="weekly"
+                    aria-pressed="false"
+                >
+                    Weekly
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    data-chart-period="monthly"
+                    aria-pressed="false"
+                >
+                    Monthly
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <?php if ($chartError !== ''): ?>
+                <div class="alert alert-warning">
+                    <?= h($chartError) ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="admin-chart-wrap">
+            <canvas
+                id="customerActivityChart"
+                aria-label="Customer activity chart"
+                role="img"
+            ></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card admin-orders-card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">All Orders</h5>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 table-sm">
+                    <thead class="table-light">
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Service</th>
+                        <th>Weight</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Notes</th>
+                        <th>Action</th>
+                    </tr>
+                    </thead>
+
+                    <tbody>
+                    <?php if (!$orders): ?>
+                        <tr>
+                            <td
+                                colspan="9"
+                                class="text-center text-muted py-4"
+                            >
+                                No orders found.
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+
+                    <?php foreach ($orders as $order): ?>
+                        <?php
+                        $orderId = $order['order_id_text'];
+                        $status = (string) (
+                            $order['status'] ?? 'Pending'
+                        );
+
+                        $highlight = in_array(
+                            $status,
+                            [
+                                'Cancellation Requested',
+                                'Service Change Requested'
+                            ],
+                            true
+                        ) ? 'table-warning' : '';
+                        ?>
+
+                        <tr class="<?= h($highlight) ?>">
+                            <td>#<?= h($orderId) ?></td>
+                            <td><?= h($order['customer_name']) ?></td>
+                            <td>
+                                <?= h($order['service_name']) ?>
+
+                                <?php if (
+                                    $status ===
+                                    'Service Change Requested'
+                                ): ?>
+                                    <small class="d-block text-muted">
+                                        Requested:
+                                        <?= h(
+                                            $order[
+                                                'requested_service_name'
+                                            ]
+                                        ) ?>
+                                    </small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?= h($order['weight_kg'] ?? null) ?> kg
+                            </td>
+                            <td>
+                                ₱<?= number_format(
+                                    (float) (
+                                        $order['total_amount'] ?? 0
+                                    ),
+                                    2
+                                ) ?>
+                            </td>
+                            <td><?= statusBadge($status) ?></td>
+                            <td>
+                                <?= formatDateValue(
+                                    $order['created_at'] ?? null
+                                ) ?>
+                            </td>
+                            <td>
+                                <?php
+                                $orderNote = trim((string) (
+                                    $order['notes'] ?? ''
+                                ));
+                                ?>
+                                <?php if ($orderNote !== ''): ?>
+                                    <details>
+                                        <summary
+                                            class="btn btn-outline-secondary btn-sm"
+                                        >
+                                            View note
+                                        </summary>
+                                        <div
+                                            class="mt-2 text-break"
+                                            style="white-space: pre-wrap; min-width: 160px;"
+                                        ><?= h($orderNote) ?></div>
+                                    </details>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (
+                                    $status ===
+                                    'Cancellation Requested'
+                                ): ?>
+                                    <form
+                                        method="POST"
+                                        action="dashboard.php"
+                                        class="d-inline"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name="order_id"
+                                            value="<?= h($orderId) ?>"
+                                        >
+                                        <input
+                                            type="hidden"
+                                            name="status"
+                                            value="Cancelled"
+                                        >
+                                        <button
+                                            class="btn btn-danger btn-sm"
+                                        >
+                                            Approve Cancel
+                                        </button>
+                                    </form>
+
+                                    <form
+                                        method="POST"
+                                        action="dashboard.php"
+                                        class="d-inline"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name="order_id"
+                                            value="<?= h($orderId) ?>"
+                                        >
+                                        <input
+                                            type="hidden"
+                                            name="status"
+                                            value="Pending"
+                                        >
+                                        <button
+                                            class="btn btn-outline-secondary btn-sm"
+                                        >
+                                            Reject
+                                        </button>
+                                    </form>
+                                <?php elseif (
+                                    $status ===
+                                    'Service Change Requested'
+                                ): ?>
+                                    <small
+                                        class="d-block text-muted mb-1"
+                                    >
+                                        →
+                                        <?= h(
+                                            $order[
+                                                'requested_service_name'
+                                            ]
+                                        ) ?>,
+                                        <?= h(
+                                            $order[
+                                                'requested_weight_kg'
+                                            ] ?? null
+                                        ) ?> kg,
+                                        ₱<?= number_format(
+                                            (float) (
+                                                $order[
+                                                    'requested_total_amount'
+                                                ] ?? 0
+                                            ),
+                                            2
+                                        ) ?>
+                                    </small>
+
+                                    <form
+                                        method="POST"
+                                        action="dashboard.php"
+                                        class="d-inline"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name="order_id"
+                                            value="<?= h($orderId) ?>"
+                                        >
+                                        <input
+                                            type="hidden"
+                                            name="action"
+                                            value="approve_service_change"
+                                        >
+                                        <button
+                                            class="btn btn-info btn-sm"
+                                        >
+                                            Approve
+                                        </button>
+                                    </form>
+
+                                    <form
+                                        method="POST"
+                                        action="dashboard.php"
+                                        class="d-inline"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name="order_id"
+                                            value="<?= h($orderId) ?>"
+                                        >
+                                        <input
+                                            type="hidden"
+                                            name="action"
+                                            value="decline_service_change"
+                                        >
+                                        <button
+                                            class="btn btn-outline-secondary btn-sm"
+                                        >
+                                            Decline
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <form
+                                        method="POST"
+                                        action="dashboard.php"
+                                        class="d-flex gap-2"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name="order_id"
+                                            value="<?= h($orderId) ?>"
+                                        >
+
+                                        <select
+                                            name="status"
+                                            class="form-select form-select-sm"
+                                        >
+                                            <?php foreach (
+                                                [
+                                                    'Pending',
+                                                    'Washing',
+                                                    'Drying',
+                                                    'Folding',
+                                                    'Ready for Pick-Up',
+                                                    'Completed',
+                                                    'Cancelled'
+                                                ]
+                                                as $option
+                                            ): ?>
+                                                <option
+                                                    value="<?= h($option) ?>"
+                                                    <?= $status === $option
+                                                        ? 'selected'
+                                                        : '' ?>
+                                                >
+                                                    <?= h($option) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+
+                                        <button
+                                            class="btn btn-primary btn-sm"
+                                        >
+                                            Update
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+const activityPeriods = <?= json_encode(
+    $chartData,
+    JSON_HEX_TAG |
+    JSON_HEX_APOS |
+    JSON_HEX_QUOT |
+    JSON_HEX_AMP
+) ?>;
+
+const activityChart = new Chart(
+    document.getElementById('customerActivityChart'),
+    {
+        type: 'line',
+        data: {
+            labels: activityPeriods.daily.labels,
+            datasets: [{
+                label: 'Customers',
+                data: activityPeriods.daily.values,
+                borderColor: '#0b91ad',
+                backgroundColor: 'rgba(11, 145, 173, .16)',
+                pointBackgroundColor: '#0b91ad',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: true,
+                tension: .35
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: '#103047',
+                    padding: 12,
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    },
+                    grid: {
+                        color: 'rgba(16, 48, 71, .08)'
+                    }
+                }
+            }
+        }
+    }
+);
+
+document.querySelectorAll('[data-chart-period]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const period = button.dataset.chartPeriod;
+
+        activityChart.data.labels = activityPeriods[period].labels;
+        activityChart.data.datasets[0].data =
+            activityPeriods[period].values;
+        activityChart.update();
+
+        document.querySelectorAll('[data-chart-period]').forEach((item) => {
+            const isActive = item === button;
+
+            item.classList.toggle('active', isActive);
+            item.setAttribute('aria-pressed', String(isActive));
+        });
+    });
+});
+</script>
+
+<script src="../assets/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

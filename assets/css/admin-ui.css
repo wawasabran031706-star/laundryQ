@@ -1,0 +1,657 @@
+.admin-ui {
+    --admin-ink: #103047;
+    --admin-muted: #607789;
+    --admin-cyan: #40cde2;
+}
+
+.admin-ui .navbar {
+    padding-top: .9rem;
+    padding-bottom: .9rem;
+    background: linear-gradient(110deg, #082f49, #075985 62%, #087e91) !important;
+    box-shadow: 0 8px 26px rgba(2, 24, 42, .24);
+}
+
+.admin-ui .navbar-brand {
+    font-weight: 750;
+    letter-spacing: -.025em;
+}
+
+.admin-ui .navbar .btn {
+    border-radius: .65rem;
+}
+
+.admin-ui .admin-hero {
+    position: relative;
+    display: flex;
+    min-height: 150px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    padding: 1.75rem 2rem;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 1.2rem;
+    background: linear-gradient(115deg, rgba(5, 39, 62, .92), rgba(7, 111, 139, .83));
+    box-shadow: 0 16px 38px rgba(2, 24, 42, .2);
+    color: #fff;
+    animation: admin-rise .55s ease-out both;
+}
+
+.admin-ui .admin-hero::after {
+    position: absolute;
+    top: -110px;
+    right: 12%;
+    width: 250px;
+    height: 250px;
+    border: 1px solid rgba(179, 245, 255, .22);
+    border-radius: 50%;
+    box-shadow:
+        0 0 0 28px rgba(179, 245, 255, .06),
+        0 0 0 58px rgba(179, 245, 255, .04);
+    content: "";
+    pointer-events: none;
+}
+
+.admin-ui .admin-hero h1 {
+    margin: 0 0 .45rem;
+    font-size: clamp(1.65rem, 3vw, 2.25rem);
+    font-weight: 750;
+    letter-spacing: -.045em;
+}
+
+.admin-ui .admin-hero p {
+    max-width: 600px;
+    margin: 0;
+    color: rgba(240, 250, 255, .8);
+}
+
+.admin-ui .admin-hero .btn {
+    z-index: 1;
+    flex-shrink: 0;
+    padding: .7rem 1rem;
+    border: 0;
+    border-radius: .75rem;
+    background: #8ce8f2;
+    color: #07364c;
+    font-weight: 700;
+}
+
+.admin-ui .admin-hero .btn:hover {
+    background: #b5f4fa;
+    color: #07364c;
+    transform: translateY(-2px);
+}
+
+.admin-ui .card {
+    overflow: hidden;
+    border: 1px solid rgba(221, 235, 243, .9);
+    border-radius: 1rem;
+    box-shadow: 0 10px 28px rgba(3, 34, 55, .1) !important;
+}
+
+.admin-ui .card-header {
+    padding: 1rem 1.25rem;
+    border-bottom-color: #e7eef3;
+}
+
+.admin-ui .card-header h5 {
+    color: var(--admin-ink);
+    font-weight: 700;
+}
+
+.admin-ui .admin-chart-wrap {
+    position: relative;
+    height: 290px;
+}
+
+.admin-ui .chart-period-switcher .btn {
+    min-width: 76px;
+    font-weight: 650;
+}
+
+.admin-ui .chart-period-switcher .btn.active {
+    border-color: #087eaa;
+    background: #087eaa;
+    color: #fff;
+}
+
+.admin-ui .admin-orders-card,
+.admin-ui .admin-reservations-card {
+    border-color: rgba(130, 205, 225, .24);
+    background: rgba(4, 29, 48, .92);
+    color: #eaf6fc;
+    box-shadow: 0 18px 42px rgba(2, 20, 35, .3) !important;
+}
+
+.admin-ui .admin-orders-card > .card-header.bg-white,
+.admin-ui .admin-reservations-card > .card-header.bg-white {
+    border-bottom-color: rgba(173, 220, 237, .16);
+    background: linear-gradient(100deg, #0b3854, #10536d) !important;
+}
+
+.admin-ui .admin-orders-card .card-header h5,
+.admin-ui .admin-reservations-card .card-header h5 {
+    color: #f2fbff;
+}
+
+.admin-ui .admin-orders-card .table,
+.admin-ui .admin-reservations-card .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: #e2f0f7;
+    --bs-table-border-color: rgba(177, 214, 230, .14);
+    --bs-table-hover-bg: rgba(73, 203, 224, .12);
+    --bs-table-hover-color: #fff;
+    margin-bottom: 0;
+}
+
+.admin-ui .admin-orders-card .table thead.table-light,
+.admin-ui .admin-reservations-card .table thead.table-light {
+    --bs-table-bg: #103c57;
+    --bs-table-color: #eaf7fc;
+    --bs-table-bg-state: #103c57;
+    --bs-table-color-state: #eaf7fc;
+}
+
+.admin-ui .admin-orders-card .table thead th,
+.admin-ui .admin-reservations-card .table thead th {
+    color: #b8d5e3;
+    border-bottom-color: rgba(177, 214, 230, .2);
+}
+
+.admin-ui .admin-orders-card .table tbody td,
+.admin-ui .admin-reservations-card .table tbody td {
+    color: #e2f0f7;
+}
+
+.admin-ui .admin-orders-card .text-muted,
+.admin-ui .admin-reservations-card .text-muted {
+    color: #aec5d2 !important;
+}
+
+.admin-ui .admin-orders-card .btn-outline-secondary,
+.admin-ui .admin-reservations-card .btn-outline-secondary {
+    color: #d7e8f0;
+    border-color: #7894a4;
+}
+
+.admin-ui .admin-orders-card .btn-outline-secondary:hover,
+.admin-ui .admin-reservations-card .btn-outline-secondary:hover {
+    color: #082f49;
+    background: #d7e8f0;
+}
+
+.admin-ui .admin-reservations-card .form-label {
+    color: #d4e7f0;
+}
+
+.admin-ui .admin-reservations-card .form-select {
+    border-color: #527185;
+    background-color: #0c344d;
+    color: #edf8fc;
+}
+
+.admin-ui .admin-reservations-card .form-select:focus {
+    border-color: #40cde2;
+    box-shadow: 0 0 0 .2rem rgba(64, 205, 226, .2);
+}
+
+.admin-ui .admin-reservations-card .table a:not(.btn) {
+    color: #79dced;
+}
+
+.admin-ui .admin-reservations-card .table a:not(.btn):hover {
+    color: #c1f5fb;
+}
+
+.admin-ui .admin-stat-card {
+    position: relative;
+    border-top: 3px solid transparent;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.admin-ui .admin-stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 16px 34px rgba(3, 34, 55, .17) !important;
+}
+
+.admin-ui .admin-stat-orders {
+    border-top-color: #35b8d1;
+}
+
+.admin-ui .admin-stat-pending {
+    border-top-color: #f0ad4e;
+}
+
+.admin-ui .admin-stat-completed {
+    border-top-color: #34b67a;
+}
+
+.admin-ui .admin-stat-revenue {
+    border: 0;
+    background: linear-gradient(135deg, #087eaa, #1664bc) !important;
+}
+
+.admin-ui .admin-stat-card h6 {
+    color: var(--admin-muted) !important;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .075em;
+    text-transform: uppercase;
+}
+
+.admin-ui .admin-stat-card h3 {
+    margin: .55rem 0 0;
+    color: var(--admin-ink);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 750;
+    letter-spacing: -.04em;
+}
+
+.admin-ui .admin-stat-revenue h6,
+.admin-ui .admin-stat-revenue h3 {
+    color: #fff !important;
+}
+
+.admin-ui .table thead th {
+    padding-top: .85rem;
+    padding-bottom: .85rem;
+    color: #526a7b;
+    font-size: .74rem;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.admin-ui .table tbody tr {
+    transition: background-color .15s ease;
+}
+
+.admin-ui .table tbody td {
+    color: #294254;
+}
+
+.admin-ui .alert {
+    border: 0;
+    border-radius: .85rem;
+    box-shadow: 0 5px 16px rgba(3, 34, 55, .08);
+}
+
+.admin-ui .btn {
+    transition: transform .16s ease, box-shadow .16s ease;
+}
+
+.admin-ui .btn:hover {
+    transform: translateY(-1px);
+}
+
+@keyframes admin-rise {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .admin-ui .admin-chart-wrap {
+        height: 250px;
+    }
+
+    .admin-ui .admin-hero {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 1.35rem;
+    }
+
+    .admin-ui .admin-hero::after {
+        right: -120px;
+    }
+
+    .admin-ui .navbar .container,
+    .admin-ui .navbar .container-fluid {
+        gap: .75rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-ui *,
+    .admin-ui *::before,
+    .admin-ui *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+body.admin-login-page {
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background:
+        linear-gradient(
+            115deg,
+            rgba(3, 24, 42, .83),
+            rgba(3, 43, 62, .5)
+        ),
+        url("../images/laundry-background.jpg") center / cover fixed
+            no-repeat;
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+.admin-login-shell {
+    width: min(960px, 100%);
+    animation: admin-rise .55s ease-out both;
+}
+
+.admin-login-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+}
+
+.admin-login-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 750;
+    letter-spacing: -.035em;
+    text-decoration: none;
+}
+
+.admin-login-brand:hover {
+    color: #b7f4fb;
+}
+
+.admin-login-mark {
+    display: grid;
+    width: 2.4rem;
+    height: 2.4rem;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, .32);
+    border-radius: .8rem;
+    background: rgba(91, 214, 237, .17);
+    color: #8ce8f2;
+}
+
+.admin-login-brand-label {
+    margin-left: .2rem;
+    color: rgba(226, 246, 252, .67);
+    font-size: .68rem;
+    letter-spacing: .14em;
+}
+
+.admin-login-navigation {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.admin-login-back,
+.admin-login-home {
+    padding: .45rem .7rem;
+    border: 1px solid rgba(255, 255, 255, .3);
+    border-radius: .65rem;
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+    font-size: .88rem;
+    text-decoration: none;
+    transition: background-color .18s ease, transform .18s ease;
+}
+
+.admin-login-back:hover,
+.admin-login-home:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, .17);
+    color: #fff;
+}
+
+.admin-login-back {
+    cursor: pointer;
+}
+
+.admin-login-card {
+    display: grid;
+    grid-template-columns: .9fr 1.1fr;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 1.35rem;
+    background: rgba(255, 255, 255, .97);
+    box-shadow: 0 28px 80px rgba(2, 20, 35, .35);
+}
+
+.admin-login-aside {
+    position: relative;
+    display: flex;
+    min-height: 440px;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    padding: 3rem;
+    background: linear-gradient(145deg, #082f49, #075b78 65%, #087e91);
+    color: #fff;
+}
+
+.admin-login-aside::after {
+    position: absolute;
+    right: -100px;
+    bottom: -120px;
+    width: 300px;
+    height: 300px;
+    border: 1px solid rgba(179, 245, 255, .24);
+    border-radius: 50%;
+    box-shadow:
+        0 0 0 30px rgba(179, 245, 255, .06),
+        0 0 0 62px rgba(179, 245, 255, .04);
+    content: "";
+}
+
+.admin-login-eyebrow {
+    margin-bottom: 1rem;
+    color: #9cecf5;
+    font-size: .74rem;
+    font-weight: 750;
+    letter-spacing: .16em;
+}
+
+.admin-login-aside h1 {
+    position: relative;
+    z-index: 1;
+    margin: 0 0 .9rem;
+    font-size: clamp(2.1rem, 4vw, 3rem);
+    font-weight: 750;
+    letter-spacing: -.06em;
+    line-height: 1;
+}
+
+.admin-login-aside p {
+    position: relative;
+    z-index: 1;
+    max-width: 310px;
+    margin: 0;
+    color: rgba(239, 249, 255, .8);
+    line-height: 1.7;
+}
+
+.admin-login-note {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-top: 2rem;
+    color: rgba(239, 249, 255, .88);
+    font-size: .88rem;
+}
+
+.admin-login-note span {
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+    background: #8ce8f2;
+    box-shadow: 0 0 14px rgba(140, 232, 242, .8);
+}
+
+.admin-login-form {
+    align-self: center;
+    padding: 3.25rem;
+}
+
+.admin-login-heading {
+    margin-bottom: 1.75rem;
+}
+
+.admin-login-heading h2 {
+    margin: 0 0 .45rem;
+    color: #103047;
+    font-size: 1.75rem;
+    font-weight: 750;
+    letter-spacing: -.045em;
+}
+
+.admin-login-heading p {
+    margin: 0;
+    color: #607789;
+    line-height: 1.5;
+}
+
+.admin-login-form .form-label {
+    color: #294254;
+    font-size: .9rem;
+    font-weight: 650;
+}
+
+.admin-login-form .form-control {
+    min-height: 3rem;
+    border-color: #d3e0e8;
+    border-radius: .75rem;
+    color: #103047;
+}
+
+.admin-login-form .form-control:focus {
+    border-color: #35b8d1;
+    box-shadow: 0 0 0 .22rem rgba(53, 184, 209, .17);
+}
+
+.admin-login-form .input-group .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.admin-login-form .input-group .btn {
+    border-color: #d3e0e8;
+    border-top-right-radius: .75rem;
+    border-bottom-right-radius: .75rem;
+    color: #426073;
+}
+
+.admin-login-form .input-group .btn:hover {
+    background: #edf7fa;
+}
+
+.admin-login-submit {
+    min-height: 3.1rem;
+    border: 0;
+    border-radius: .75rem;
+    background: linear-gradient(105deg, #087eaa, #0b91ad);
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 9px 20px rgba(8, 126, 170, .22);
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.admin-login-submit:hover,
+.admin-login-submit:focus-visible {
+    transform: translateY(-2px);
+    background: linear-gradient(105deg, #076d96, #087e91);
+    color: #fff;
+    box-shadow: 0 13px 24px rgba(8, 126, 170, .3);
+}
+
+.admin-login-form .alert {
+    border: 0;
+    border-radius: .75rem;
+    font-size: .9rem;
+}
+
+.admin-login-footer {
+    margin: 1rem 0 0;
+    color: rgba(239, 249, 255, .72);
+    font-size: .82rem;
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    body.admin-login-page {
+        padding: 1.15rem;
+        background-attachment: scroll;
+    }
+
+    .admin-login-card {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-login-aside {
+        min-height: auto;
+        padding: 2rem;
+    }
+
+    .admin-login-aside p {
+        max-width: 480px;
+    }
+
+    .admin-login-note {
+        margin-top: 1.25rem;
+    }
+
+    .admin-login-form {
+        padding: 2rem;
+    }
+}
+
+@media (max-width: 420px) {
+    body.admin-login-page {
+        padding: .75rem;
+    }
+
+    .admin-login-brand {
+        font-size: 1.05rem;
+    }
+
+    .admin-login-navigation {
+        gap: .4rem;
+    }
+
+    .admin-login-back,
+    .admin-login-home {
+        padding: .4rem .5rem;
+        font-size: .8rem;
+    }
+
+    .admin-login-aside,
+    .admin-login-form {
+        padding: 1.5rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-login-page *,
+    .admin-login-page *::before,
+    .admin-login-page *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}

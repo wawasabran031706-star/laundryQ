@@ -1,0 +1,229 @@
+body.customer-portal {
+    min-height: 100vh;
+    background:
+        linear-gradient(
+            115deg,
+            rgba(3, 24, 42, .82),
+            rgba(3, 43, 62, .55)
+        ),
+        url("../images/laundry-background.jpg") center / cover fixed
+            no-repeat;
+    color: #eef8fc;
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+.customer-portal .card {
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .76);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, .97);
+    box-shadow: 0 16px 42px rgba(2, 20, 35, .2);
+}
+
+.customer-portal .card-header.bg-white {
+    border-bottom-color: #e4edf2;
+    background: linear-gradient(110deg, #f8fcfd, #edf8fa) !important;
+}
+
+.customer-portal .customer-orders-card,
+.customer-portal .customer-reservations-card {
+    border-color: rgba(130, 205, 225, .24);
+    background: rgba(4, 29, 48, .92);
+    color: #eaf6fc;
+    box-shadow: 0 18px 42px rgba(2, 20, 35, .3);
+}
+
+.customer-portal .customer-reservations-card > .card-header.bg-white {
+    border-bottom-color: rgba(173, 220, 237, .16);
+    background: linear-gradient(100deg, #0b3854, #10536d) !important;
+}
+
+.customer-portal .customer-orders-card h5,
+.customer-portal .customer-reservations-card .card-header h5 {
+    color: #f2fbff;
+    font-weight: 700;
+}
+
+.customer-portal .customer-orders-card .table,
+.customer-portal .customer-reservations-card .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: #e2f0f7;
+    --bs-table-border-color: rgba(177, 214, 230, .14);
+    --bs-table-hover-bg: rgba(73, 203, 224, .12);
+    --bs-table-hover-color: #fff;
+    margin-bottom: 0;
+}
+
+.customer-portal .customer-orders-card .table thead.table-light,
+.customer-portal .customer-reservations-card .table thead.table-light {
+    --bs-table-bg: #103c57;
+    --bs-table-color: #eaf7fc;
+    --bs-table-bg-state: #103c57;
+    --bs-table-color-state: #eaf7fc;
+}
+
+.customer-portal .customer-orders-card .table thead th,
+.customer-portal .customer-reservations-card .table thead th {
+    color: #b8d5e3;
+    border-bottom-color: rgba(177, 214, 230, .2);
+}
+
+.customer-portal .customer-orders-card .table tbody td,
+.customer-portal .customer-reservations-card .table tbody td {
+    color: #e2f0f7;
+}
+
+.customer-portal .card.customer-orders-card .text-muted,
+.customer-portal .card.customer-reservations-card .text-muted {
+    color: #aec5d2 !important;
+}
+
+.customer-portal .customer-orders-card .table a:not(.btn),
+.customer-portal .customer-reservations-card .table a:not(.btn) {
+    color: #79dced;
+}
+
+.customer-portal .customer-orders-card .table a:not(.btn):hover,
+.customer-portal .customer-reservations-card .table a:not(.btn):hover {
+    color: #c1f5fb;
+}
+
+.customer-portal .customer-orders-card .btn-outline-secondary,
+.customer-portal .customer-reservations-card .btn-outline-secondary {
+    border-color: #7894a4;
+    color: #d7e8f0;
+}
+
+.customer-portal .customer-orders-card .btn-outline-primary,
+.customer-portal .customer-orders-card .btn-outline-info,
+.customer-portal .customer-reservations-card .btn-outline-primary,
+.customer-portal .customer-reservations-card .btn-outline-info {
+    border-color: #59bcd0;
+    color: #b0f0f7;
+}
+
+.customer-portal .customer-orders-card .form-select,
+.customer-portal .customer-reservations-card .form-select {
+    border-color: #527185;
+    background-color: #0c344d;
+    color: #edf8fc;
+}
+
+.customer-portal .card .text-primary {
+    color: #087eaa !important;
+}
+
+.customer-portal .text-primary {
+    color: #a4edf6 !important;
+}
+
+.customer-portal .text-muted {
+    color: rgba(238, 248, 252, .78) !important;
+}
+
+.customer-portal .card .text-muted {
+    color: #627b8c !important;
+}
+
+.customer-portal a:not(.btn) {
+    color: #a4edf6;
+    text-underline-offset: .18em;
+}
+
+.customer-portal .card a:not(.btn) {
+    color: #087eaa;
+}
+
+.customer-portal .form-label {
+    color: #294254;
+    font-weight: 650;
+}
+
+.customer-portal .form-control,
+.customer-portal .form-select {
+    min-height: 2.8rem;
+    border-color: #d3e0e8;
+    border-radius: .7rem;
+    color: #18384c;
+}
+
+.customer-portal textarea.form-control {
+    min-height: auto;
+}
+
+.customer-portal .form-control:focus,
+.customer-portal .form-select:focus {
+    border-color: #35b8d1;
+    box-shadow: 0 0 0 .22rem rgba(53, 184, 209, .17);
+}
+
+.customer-portal .btn {
+    border-radius: .7rem;
+    font-weight: 600;
+    transition: transform .16s ease, box-shadow .16s ease;
+}
+
+.customer-portal .btn:hover {
+    transform: translateY(-1px);
+}
+
+.customer-portal .btn-primary {
+    border-color: #087eaa;
+    background: linear-gradient(105deg, #087eaa, #0b91ad);
+}
+
+.customer-portal .btn-primary:hover,
+.customer-portal .btn-primary:focus-visible {
+    border-color: #076d96;
+    background: linear-gradient(105deg, #076d96, #087e91);
+    box-shadow: 0 7px 18px rgba(8, 126, 170, .22);
+}
+
+.customer-portal .btn-outline-primary {
+    border-color: #138ca8;
+    color: #087eaa;
+}
+
+.customer-portal .btn-outline-primary:hover {
+    border-color: #087eaa;
+    background: #087eaa;
+    color: #fff;
+}
+
+.customer-portal .btn-outline-secondary {
+    border-color: #93a8b5;
+    color: #496273;
+}
+
+.customer-portal .alert {
+    border: 0;
+    border-radius: .8rem;
+    box-shadow: 0 6px 18px rgba(2, 20, 35, .1);
+}
+
+.customer-portal .navbar {
+    background: linear-gradient(110deg, #082f49, #075985 62%, #087e91) !important;
+    box-shadow: 0 8px 26px rgba(2, 24, 42, .24);
+}
+
+@media (max-width: 767.98px) {
+    body.customer-portal {
+        background-attachment: scroll;
+    }
+
+    .customer-portal .container {
+        padding-right: 1rem;
+        padding-left: 1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .customer-portal *,
+    .customer-portal *::before,
+    .customer-portal *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}

@@ -1,0 +1,11 @@
+.env
+.Env
+.env.*
+.Env.*
+!.env.example
+.git
+.gitignore
+vendor/
+node_modules/
+*.log
+error_log
